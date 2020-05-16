@@ -14,10 +14,9 @@ from flask_migrate import Migrate
 #----------------------------------------------------------------------------#
 
 app = Flask(__name__)
-moment = Moment(app)
 app.config.from_object('config')
+moment = Moment(app)
 db = SQLAlchemy(app)
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 migrate = Migrate(app, db)
 
 #----------------------------------------------------------------------------#
@@ -26,7 +25,7 @@ migrate = Migrate(app, db)
 
 # Venue Model
 class Venue(db.Model):
-    __tablename__ = 'Venue'
+    __tablename__ = 'venues'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
@@ -36,19 +35,18 @@ class Venue(db.Model):
     phone = db.Column(db.String(120))
     image_link = db.Column(db.String(500))
     facebook_link = db.Column(db.String(120))
-    genres = db.Column(db.ARRAY(db.String), nullable=False)
+    genres = db.Column((db.String(120)), nullable=False)
     website = db.Column(db.String(120))
     seeking_talent = db.Column(db.Boolean, default=False)
     seeking_description = db.Column(db.String)
-    shows = db.relationship('Show', backref='venue', lazy=True)
-
-
-def __repr__(self):
-        return '<Venue {}>'.format(self.name)
+    shows = db.relationship('Show', backref='venues', lazy=True)
+    
+    def __repr__(self):
+        return '<venues {}>'.format(self.name)
 
 # Artist Model
 class Artist(db.Model):
-    __tablename__ = 'Artist'
+    __tablename__ = 'artists'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
@@ -61,21 +59,21 @@ class Artist(db.Model):
     facebook_link = db.Column(db.String(120))
     seeking_venue = db.Column(db.Boolean, default=False)
     seeking_description = db.Column(db.String)
-    shows = db.relationship('Show', backref='artist', lazy=True)
-
-
-def __repr__(self):
-        return '<Artist {}>'.format(self.name)
+    shows = db.relationship('Show', backref='artists', lazy=True)
+    
+    def __repr__(self):
+        return '<artists {}>'.format(self.name)
 
 # Show Model
 class Show(db.Model):
+    __tablename__ = 'shows'
     id = db.Column(db.Integer, primary_key=True)
-    artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id'), nullable=False)
-    venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'), nullable=False)
+    artist_id = db.Column(db.Integer, db.ForeignKey('artists.id'), nullable=False)
+    venue_id = db.Column(db.Integer, db.ForeignKey('venues.id'), nullable=False)
     start_time = db.Column(db.DateTime, nullable=False)
-
-def __repr__(self):
-        return '<Show {}{}>'.format(self.artist_id, self.venue_id)
+    
+    def __repr__(self):
+        return '<shows {}{}>'.format(self.artist_id, self.venue_id)
 
 db.create_all()
 #----------------------------------------------------------------------------#
@@ -145,10 +143,10 @@ def search_venues():
 #venue details
 @app.route('/venues/<int:venue_id>')
 def show_venue(venue_id):
-    venue = Venue.query.filter_by(id=venue_id).first()
-    shows = Show.query.filter_by(venue_id=venue_id).all()
-
-    data = {
+  
+  venue = Venue.query.filter_by(id=venue_id).first()
+  shows = db.session.query(Show).join(Artist).filter(Show.venue_id==venue_id).all()
+  data = {
         "id": venue.id,
         "name": venue.name,
         "genres": venue.genres,
@@ -166,7 +164,7 @@ def show_venue(venue_id):
         "past_shows_count": len(past_shows(shows)),
         "upcoming_shows_count": len(upcoming_shows(shows))
     }
-    return render_template('pages/show_venue.html', venue=data)
+  return render_template('pages/show_venue.html', venue=data)
 
 #  Create Venue
 #  ----------------------------------------------------------------
@@ -244,6 +242,7 @@ def search_artists():
 def show_artist(artist_id):
     artist = Artist.query.filter_by(id=artist_id).first()
     shows = Show.query.filter_by(artist_id=artist_id).all()
+    shows = db.session.query(Show).join(Artist).filter(Show.venue_id==artist_id).all()
 
     data = {
         "id": artist.id,
@@ -341,10 +340,10 @@ def create_show_submission():
     except Exception as e:
         flash(f'An error occurred. Show could not be listed. Error: {e}')
         db.session.rollback()
-        return render_template('forms/new_show.html', form=form)
     finally:
         db.session.close()
-
+        return render_template('forms/new_show.html', form=form)
+   
 # supported function to calculte upcoming shows 
 def upcoming_shows(shows):
     upcoming = []
@@ -355,6 +354,8 @@ def upcoming_shows(shows):
                 "artist_id": show.artist_id,
                 "artist_name": Artist.query.filter_by(id=show.artist_id).first().name,
                 "artist_image_link": Artist.query.filter_by(id=show.artist_id).first().image_link,
+                "venue_id": show.venue_id,
+                "venue_name": Venue.query.filter_by(id=show.venue_id).first().name,
                 "venue_image_link": Venue.query.filter_by(id=show.artist_id).first().image_link,
                 "start_time": format_datetime(str(show.start_time))
             })
@@ -370,6 +371,8 @@ def past_shows(shows):
                 "artist_id": show.artist_id,
                 "artist_name": Artist.query.filter_by(id=show.artist_id).first().name,
                 "artist_image_link": Artist.query.filter_by(id=show.artist_id).first().image_link,
+                "venue_id": show.venue_id,
+                "venue_name": Venue.query.filter_by(id=show.venue_id).first().name,
                 "venue_image_link": Venue.query.filter_by(id=show.artist_id).first().image_link,
                 "start_time": format_datetime(str(show.start_time))
             })

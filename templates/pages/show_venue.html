@@ -9,10 +9,8 @@
 		<p class="subtitle">
 			ID: {{ venue.id }}
 		</p>
-		<div class="genres">
-			{% for genre in venue.genres %}
-			<span class="genre">{{ genre }}</span>
-			{% endfor %}
+		<div class="genres">		
+			<span class="genre">{{ venue.genres }}</span>
 		</div>
 		<p>
 			<i class="fas fa-globe-americas"></i> {{ venue.city }}, {{ venue.state }}
